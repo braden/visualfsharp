@@ -176,6 +176,20 @@ module internal FSharpEnvironment =
             Some pathFromCurrentDomain
         else
             None
+
+    /// Try and get the compiler location based on the path of the currently executing assembly.
+    let internal tryCurrentAssembly() =
+        let path = 
+            (System.UriBuilder (System.Reflection.Assembly.GetExecutingAssembly().CodeBase)).ToString ()
+            |> Uri.UnescapeDataString
+            |> Path.GetDirectoryName
+            
+        let path = path.Replace ("file:\\", "")
+
+        if not(String.IsNullOrEmpty(path)) then 
+            Some path
+        else
+            None
     
     let internal tryAppConfig (appConfigKey:string) = 
 
@@ -199,6 +213,10 @@ module internal FSharpEnvironment =
     //     - default location of fsc.exe in FSharp.Compiler.CodeDom.dll
     //     - default F# binaries directory in (project system) Project.fs
     let BinFolderOfDefaultFSharpCompiler = 
+            // When building for stand-alone use (e.g. not installing system-wide)
+#if STANDALONE_BUILD
+        tryCurrentAssembly ()
+#else
         // Check for an app.config setting to redirect the default compiler location
         // Like fsharp-compiler-location
         try 
@@ -243,6 +261,7 @@ module internal FSharpEnvironment =
         with e -> 
             System.Diagnostics.Debug.Assert(false, "Error while determining default location of F# compiler")
             None
+#endif
 
 #if FX_ATLEAST_45
 
