@@ -2149,6 +2149,14 @@ let typecheckAndCompile(argv,bannerAlreadyPrinted,exiter:Exiter, errorLoggerProv
     |> main4
 
 let mainCompile (argv,bannerAlreadyPrinted,exiter:Exiter) = 
+#if STANDALONE_BUILD
+#if FX_ATLEAST_45
+    // In stand-alone mode we might not be ngen'd so enable jit profile to accelerate startup times.
+    System.Runtime.ProfileOptimization.SetProfileRoot (System.IO.Path.GetTempPath())
+    System.Runtime.ProfileOptimization.StartProfile "fsc-jit-profile"
+#endif
+#endif
+
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
     typecheckAndCompile(argv, bannerAlreadyPrinted, exiter, DefaultLoggerProvider())
 
