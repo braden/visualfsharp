@@ -703,6 +703,7 @@ let mkProvenUnionCaseTy ucref tyargs = TType_ucase(ucref,tyargs)
 let isAppTy   g ty = ty |> stripTyEqns g |> (function TType_app _ -> true | _ -> false) 
 let destAppTy g ty = ty |> stripTyEqns g |> (function TType_app(tcref,tinst) -> tcref,tinst | _ -> failwith "destAppTy") 
 let tcrefOfAppTy   g ty = ty |> stripTyEqns g |> (function TType_app(tcref,_) -> tcref | _ -> failwith "tcrefOfAppTy") 
+let tinstOfAppTy   g ty = ty |> stripTyEqns g |> (function TType_app(_,tinst) -> tinst | _ -> failwith "tcrefOfAppTy") 
 let tryDestAppTy   g ty = ty |> stripTyEqns g |> (function TType_app(tcref,_) -> Some tcref | _ -> None) 
 let (|AppTy|_|) g ty = ty |> stripTyEqns g |> (function TType_app(tcref,tinst) -> Some (tcref,tinst) | _ -> None) 
 let (|TupleTy|_|) g ty = ty |> stripTyEqns g |> (function TType_tuple(tys) -> Some tys | _ -> None)
@@ -1422,7 +1423,7 @@ let rankOfArrayTyconRef g tcr =
 //------------------------------------------------------------------------- 
 
 let destArrayTy (g:TcGlobals) ty =
-    let _,tinst = destAppTy g ty
+    let tinst = tinstOfAppTy g ty
     match tinst with 
     | [ty] -> ty
     | _ -> failwith "destArrayTy";
@@ -1478,7 +1479,7 @@ let metadataOfTy g ty =
     | _ -> 
 #endif
     if isILAppTy g ty then 
-       let tcref,_ = destAppTy g ty
+       let tcref = tcrefOfAppTy g ty
        let scoref,_,tdef = tcref.ILTyconInfo
        ILTypeMetadata (scoref,tdef)
     else 
@@ -1505,7 +1506,7 @@ let rankOfArrayTy g ty = rankOfArrayTyconRef g (tcrefOfAppTy g ty)
 
 let isFSharpObjModelRefTy g ty = 
     isFSharpObjModelTy g ty && 
-    let tcr,_ = destAppTy g ty
+    let tcr = tcrefOfAppTy g ty
     match tcr.FSharpObjectModelTypeInfo.fsobjmodel_kind with 
     | TTyconClass | TTyconInterface   | TTyconDelegate _ -> true
     | TTyconStruct | TTyconEnum -> false
@@ -7116,14 +7117,14 @@ let isSealedTy g ty =
     | FSharpOrArrayOrByrefOrTupleOrExnTypeMetadata -> 
 
        if (isFSharpInterfaceTy g ty || isFSharpClassTy g ty) then 
-          let tcref,_ = destAppTy g ty
+          let tcref = tcrefOfAppTy g ty
           (TryFindFSharpBoolAttribute g g.attrib_SealedAttribute tcref.Attribs = Some(true))
        else 
           // All other F# types, array, byref, tuple types are sealed
           true
    
 let isComInteropTy g ty =
-    let tcr,_ = destAppTy g ty
+    let tcr = tcrefOfAppTy g ty
     match g.attrib_ComImportAttribute with
     | None -> false
     | Some attr -> TryFindFSharpBoolAttribute g attr tcr.Attribs = Some(true)

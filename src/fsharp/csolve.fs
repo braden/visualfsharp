@@ -825,7 +825,7 @@ and SolveTypSubsumesTyp (csenv:ConstraintSolverEnv) ndeep m2 (trace: OptionalTra
               tyconRefEq g tcr1 g.tcref_System_Collections_Generic_IReadOnlyCollection || 
               tyconRefEq g tcr1 g.tcref_System_Collections_Generic_IEnumerable)) then
 
-          let _,tinst = destAppTy g ty1
+          let tinst = tinstOfAppTy g ty1
           match tinst with 
           | [ty1arg] -> 
               let ty2arg = destArrayTy g ty2

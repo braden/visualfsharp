@@ -5103,7 +5103,7 @@ and ComputeFlagFixupsForMemberBinding cenv (v:Val,memberInfo:ValMemberInfo) =
      else 
          memberInfo.ImplementedSlotSigs |> List.map (fun slotsig -> 
              let oty = slotsig.ImplementedType
-             let otcref,_ = destAppTy cenv.g oty
+             let otcref = tcrefOfAppTy cenv.g oty
              let tcref = v.MemberApparentParent
              
              let useMethodImpl = 
