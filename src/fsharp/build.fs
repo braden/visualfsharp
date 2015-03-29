@@ -2351,17 +2351,8 @@ let GetInternalsVisibleToAttributes ilg ilModule =
 // TcConfig 
 //--------------------------------------------------------------------------
 
-[<Sealed>]
-/// This type is immutable and must be kept as such. Do not extract or mutate the underlying data except by cloning it.
-type TcConfig private (data : TcConfigBuilder,validate:bool) =
-
-    // Validate the inputs - this helps ensure errors in options are shown in visual studio rather than only when built
-    // However we only validate a minimal number of options at the moment
-    do if validate then try data.version.GetVersionInfo(data.implicitIncludeDir) |> ignore with e -> errorR(e) 
-
-    // clone the input builder to ensure nobody messes with it.
-    let data = { data with pause = data.pause }
-
+/// These are values TcConfig computes, but should be deferred until they are actually needed.
+type TcConfigComputedValues (data : TcConfigBuilder) =
     let computeKnownDllReference(libraryName) = 
         let defaultCoreLibraryReference = AssemblyReference(range0,libraryName+".dll")
         let nameOfDll(AssemblyReference(m,filename) as r) = 
@@ -2478,6 +2469,29 @@ type TcConfig private (data : TcConfigBuilder,validate:bool) =
             data.defaultFSharpBinariesDir
 
     member x.MscorlibMajorVersion = mscorlibMajorVersion
+    member x.FsharpBinariesDirValue = fsharpBinariesDirValue
+    member x.ClrRootValue = clrRootValue
+    member x.TargetFrameworkVersionValue = targetFrameworkVersionValue
+    member x.SystemAssemblies = systemAssemblies
+    member x.CheckFSharpBinaryCompatWithMscorlib = checkFSharpBinaryCompatWithMscorlib
+    member x.PrimaryAssemblyReference = primaryAssemblyReference
+    member x.PrimaryAssemblyCcuInitializer = primaryAssemblyCcuInitializer
+    member x.FslibReference = fslibReference
+
+[<Sealed>]
+/// This type is immutable and must be kept as such. Do not extract or mutate the underlying data except by cloning it.
+type TcConfig private (data : TcConfigBuilder,validate:bool) =
+
+    // Validate the inputs - this helps ensure errors in options are shown in visual studio rather than only when built
+    // However we only validate a minimal number of options at the moment
+    do if validate then try data.version.GetVersionInfo(data.implicitIncludeDir) |> ignore with e -> errorR(e) 
+
+    // clone the input builder to ensure nobody messes with it.
+    let data = { data with pause = data.pause }
+
+    let computedValues = lazy TcConfigComputedValues (data)
+
+    member x.MscorlibMajorVersion = computedValues.Value.MscorlibMajorVersion
     member x.primaryAssembly = data.primaryAssembly
     member x.autoResolveOpenDirectivesToDlls = data.autoResolveOpenDirectivesToDlls
     member x.noFeedback = data.noFeedback
@@ -2485,7 +2499,7 @@ type TcConfig private (data : TcConfigBuilder,validate:bool) =
     member x.implicitIncludeDir = data.implicitIncludeDir
     member x.openBinariesInMemory = data.openBinariesInMemory
     member x.openDebugInformationForLaterStaticLinking = data.openDebugInformationForLaterStaticLinking
-    member x.fsharpBinariesDir = fsharpBinariesDirValue
+    member x.fsharpBinariesDir = computedValues.Value.FsharpBinariesDirValue
     member x.compilingFslib = data.compilingFslib
     member x.compilingFslib20 = data.compilingFslib20
     member x.compilingFslib40 = data.compilingFslib40
@@ -2502,7 +2516,7 @@ type TcConfig private (data : TcConfigBuilder,validate:bool) =
     member x.loadedSources = data.loadedSources
     member x.referencedDLLs = data.referencedDLLs
     member x.knownUnresolvedReferences = data.knownUnresolvedReferences
-    member x.clrRoot = clrRootValue
+    member x.clrRoot = computedValues.Value.ClrRootValue
     member x.optimizeForMemory = data.optimizeForMemory
     member x.subsystemVersion = data.subsystemVersion
     member x.useHighEntropyVA = data.useHighEntropyVA
@@ -2534,7 +2548,7 @@ type TcConfig private (data : TcConfigBuilder,validate:bool) =
     member x.importAllReferencesOnly = data.importAllReferencesOnly
     member x.simulateException = data.simulateException
     member x.printAst  = data.printAst
-    member x.targetFrameworkVersionMajorMinor = targetFrameworkVersionValue
+    member x.targetFrameworkVersionMajorMinor = computedValues.Value.TargetFrameworkVersionValue
     member x.tokenizeOnly  = data.tokenizeOnly
     member x.testInteractionParser  = data.testInteractionParser
     member x.reportNumDecls  = data.reportNumDecls
@@ -2678,7 +2692,7 @@ type TcConfig private (data : TcConfigBuilder,validate:bool) =
         try 
             FileSystem.SafeExists filename && 
             ((tcConfig.ClrRoot |> List.exists (fun clrRoot -> clrRoot = Path.GetDirectoryName filename)) ||
-             (systemAssemblies |> List.exists (fun sysFile -> sysFile = fileNameWithoutExtension filename)))
+             (computedValues.Value.SystemAssemblies |> List.exists (fun sysFile -> sysFile = fileNameWithoutExtension filename)))
         with _ ->
             false    
         
@@ -2773,7 +2787,7 @@ type TcConfig private (data : TcConfigBuilder,validate:bool) =
 
     member tcConfig.CheckFSharpBinary (filename,ilAssemblyRefs,m) = 
         use unwindBuildPhase = PushThreadBuildPhaseUntilUnwind (BuildPhase.Parameter)
-        checkFSharpBinaryCompatWithMscorlib filename ilAssemblyRefs None m
+        computedValues.Value.CheckFSharpBinaryCompatWithMscorlib filename ilAssemblyRefs None m
 
     // NOTE!! if mode=Speculative then this method must not report ANY warnings or errors through 'warning' or 'error'. Instead
     // it must return warnings and errors as data
@@ -2931,9 +2945,9 @@ type TcConfig private (data : TcConfigBuilder,validate:bool) =
                 resultingResolutions,unresolvedReferences |> List.map (fun (name, _, r) -> (name, r)) |> List.map UnresolvedAssemblyReference    
 
 
-    member tcConfig.PrimaryAssemblyDllReference() = primaryAssemblyReference
-    member tcConfig.GetPrimaryAssemblyCcuInitializer() = primaryAssemblyCcuInitializer
-    member tcConfig.CoreLibraryDllReference() = fslibReference
+    member tcConfig.PrimaryAssemblyDllReference() = computedValues.Value.PrimaryAssemblyReference
+    member tcConfig.GetPrimaryAssemblyCcuInitializer() = computedValues.Value.PrimaryAssemblyCcuInitializer
+    member tcConfig.CoreLibraryDllReference() = computedValues.Value.FslibReference
                
 
 let warningMem n l = List.mem n l
