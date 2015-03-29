@@ -1048,7 +1048,7 @@ let pdbCloseDocument(documentWriter : PdbDocumentWriter) =
     |> ignore
 
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Reliability", "CA2001:AvoidCallingProblematicMethods", MessageId="System.GC.Collect")>]
-let pdbClose (writer:PdbWriter) =
+let pdbClose (writer:PdbWriter) filename =
     writer.symWriter.Close()
     // CorSymWriter objects (ISymUnmanagedWriter) lock the files they're operating
     // on (both the pdb and the binary).  The locks are released only when their ref
@@ -1061,18 +1061,21 @@ let pdbClose (writer:PdbWriter) =
     let rc = Marshal.ReleaseComObject(writer.symWriter)
     for i = 0 to (rc - 1) do
       Marshal.ReleaseComObject(writer.symWriter) |> ignore
-      
-    System.GC.Collect();
-    System.GC.Collect();
-    System.GC.WaitForPendingFinalizers();
+    
+    let isLocked () =
+        try
+            use x = File.Open (filename, FileMode.Open, FileAccess.ReadWrite, FileShare.None)
+            false
+        with
+        | _ -> true
 
-    System.GC.Collect();
-    System.GC.Collect();
-    System.GC.WaitForPendingFinalizers();
-
-    System.GC.Collect();
-    System.GC.Collect();
-    System.GC.WaitForPendingFinalizers()
+    let mutable attempts = 0
+    while isLocked () && attempts < 3 do
+        // Need to induce two full collections for finalizers to run
+        System.GC.Collect()
+        System.GC.Collect()
+        System.GC.WaitForPendingFinalizers()
+        attempts <- attempts + 1
 
 let pdbSetUserEntryPoint (writer:PdbWriter) (entryMethodToken:int32) =
     writer.symWriter.SetUserEntryPoint((uint32)entryMethodToken)
