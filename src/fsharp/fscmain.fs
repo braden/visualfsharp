@@ -242,6 +242,11 @@ module FSharpResidentCompiler =
 
 module Driver = 
     let main argv = 
+        let argv =
+            match argv |> Array.tryPick  (fun (x:string) -> if x.StartsWith "/file:" then Some ((x.Split ([| "file:" |], System.StringSplitOptions.None)).[1]) else None) with
+            | Some file -> System.IO.File.ReadAllLines file
+            | None -> argv
+
         // Check for --pause as the very first step so that a compiler can be attached here.
         if argv |> Array.exists  (fun x -> x = "/pause" || x = "--pause") then 
             System.Console.WriteLine("Press any key to continue...")
