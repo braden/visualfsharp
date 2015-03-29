@@ -11,8 +11,9 @@ let illegalPathChars = Path.GetInvalidPathChars()
 
 let checkPathForIllegalChars (path:string) = 
     for c in path do
-        if illegalPathChars |> Array.exists(fun c1->c1=c) then 
-            raise(IllegalFileNameChar(path,c))
+        for illegal in illegalPathChars do
+            if c = illegal then
+                raise(IllegalFileNameChar(path,c))
 
 // Case sensitive (original behaviour preserved).
 let checkSuffix (x:string) (y:string) = x.EndsWith(y,System.StringComparison.Ordinal) 
