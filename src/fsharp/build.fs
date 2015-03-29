@@ -2688,11 +2688,13 @@ type TcConfig private (data : TcConfigBuilder,validate:bool) =
     ///
     /// Returning true may mean that the file is locked and/or placed into the
     /// 'framework' reference set that is potentially shared across multiple compilations.
-    member tcConfig.IsSystemAssembly (filename:string) =  
+    member tcConfig.IsSystemAssembly (filename:string) = 
         try 
+            let filenameWithoutExtension = fileNameWithoutExtension filename
+            let filenameDirectory = Path.GetDirectoryName filename
             FileSystem.SafeExists filename && 
-            ((tcConfig.ClrRoot |> List.exists (fun clrRoot -> clrRoot = Path.GetDirectoryName filename)) ||
-             (computedValues.Value.SystemAssemblies |> List.exists (fun sysFile -> sysFile = fileNameWithoutExtension filename)))
+            ((tcConfig.ClrRoot |> List.exists (fun clrRoot -> clrRoot = filenameDirectory)) ||
+             (computedValues.Value.SystemAssemblies |> List.exists (fun sysFile -> sysFile = filenameWithoutExtension)))
         with _ ->
             false    
         
