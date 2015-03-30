@@ -330,7 +330,7 @@ let WritePdbInfo fixupOverlappingSequencePoints showTimes f fpdb info =
     for pdbDoc in docs do
         pdbCloseDocument pdbDoc
 
-    pdbClose !pdbw fpdb;
+    pdbClose !pdbw f fpdb;
     reportTime showTimes "PDB: Closed";
     res
 
