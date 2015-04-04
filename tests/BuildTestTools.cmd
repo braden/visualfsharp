@@ -19,6 +19,7 @@ exit /b 1
 if not '%VisualStudioVersion%' == '' goto vsversionset
 if exist "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\common7\ide\devenv.exe" set VisualStudioVersion=14.0
 if exist "%ProgramFiles%\Microsoft Visual Studio 14.0\common7\ide\devenv.exe" set VisualStudioVersion=14.0
+if exist "%VS140COMNTOOLS%" set VisualStudioVersion=14.0
 if not '%VisualStudioVersion%' == '' goto vsversionset
 if exist "%ProgramFiles(x86)%\Microsoft Visual Studio 12.0\common7\ide\devenv.exe" set VisualStudioVersion=12.0
 if exist "%ProgramFiles%\Microsoft Visual Studio 12.0\common7\ide\devenv.exe" set VisualStudioVersion=12.0
