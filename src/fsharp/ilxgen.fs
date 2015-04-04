@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+ // Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 //--------------------------------------------------------------------------
 // The ILX generator. 
@@ -2069,7 +2069,7 @@ and GenNewArraySimple cenv cgbuf eenv (elems,elemTy,m) sequel =
     GenSequel cenv eenv.cloc cgbuf sequel
 
 and GenNewArray cenv cgbuf eenv (elems: Expr list,elemTy,m) sequel =
-  if elems.Length = 0 then
+  if !IlxSettings.ilxCompilingFSharpCoreLib = false && elems.Length = 0 then
     GenExpr cenv cgbuf eenv SPSuppress (mkCallArrayEmpty cenv.g m elemTy) sequel
   // REVIEW: The restriction against enum types here has to do with Dev10/Dev11 bug 872799
   // GenConstArray generates a call to RuntimeHelpers.InitializeArray.  On CLR 2.0/x64 and CLR 4.0/x64/x86,
