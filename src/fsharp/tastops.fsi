@@ -1135,6 +1135,7 @@ val mkCallTypeDefOf   : TcGlobals -> range -> TType -> Expr
 val mkCallCreateInstance     : TcGlobals -> range -> TType -> Expr
 val mkCallCreateEvent        : TcGlobals -> range -> TType -> TType -> Expr -> Expr -> Expr -> Expr
 val mkCallArrayLength        : TcGlobals -> range -> TType -> Expr -> Expr
+val mkCallArrayEmpty         : TcGlobals -> range -> TType -> Expr
 val mkCallArrayGet           : TcGlobals -> range -> TType -> Expr -> Expr -> Expr
 val mkCallArray2DGet         : TcGlobals -> range -> TType -> Expr -> Expr -> Expr -> Expr 
 val mkCallArray3DGet         : TcGlobals -> range -> TType -> Expr -> Expr -> Expr -> Expr -> Expr
