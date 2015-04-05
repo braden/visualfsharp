@@ -10,9 +10,20 @@ open Microsoft.FSharp.Core
 open Microsoft.FSharp.Control
 
 /// Position information stored for lexing tokens
-[<Sealed>]
+[<Struct>]
 type internal Position = 
-     interface System.IComparable
+    /// The file name index for the position, use fileOfFileIndex in range.fs to decode
+    val PosFileIndex: int;
+    /// The line number for the position
+    val PosLineNum: int;
+    /// The line number for the position in the original source file
+    val PosOriginalLineNum : int;
+    /// The absolute offset of the beginning of the line
+    val PosStartOfLineOffset: int;
+    /// The absolute offset of the column for the position
+    val PosColumnOffset: int; 
+
+     //interface System.IComparable
      /// The file index for the file associated with the input stream, use fileOfFileIndex in range.fs to decode
      member FileIndex : int
      /// The line number in the input stream, assuming fresh positions have been updated 
@@ -23,8 +34,6 @@ type internal Position =
      member OriginalLine : int
      /// The character number in the input stream
      member AbsoluteOffset : int
-     /// Return absolute offset of the start of the line marked by the position
-     member StartOfLineAbsoluteOffset : int
      /// Return the column number marked by the position, i.e. the difference between the AbsoluteOffset and the StartOfLineAbsoluteOffset
      member Column : int
      // Given a position just beyond the end of a line, return a position at the start of the next line

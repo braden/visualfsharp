@@ -9,53 +9,43 @@ namespace Internal.Utilities.Text.Lexing
     open Microsoft.FSharp.Collections
     open System.Collections.Generic
 
-    // REVIEW: This type showed up on a parsing-intensive performance measurement. 
-    // REVIEW: Consider whether it can be smaller or can be a struct. 
-    type internal Position = 
-        { /// The file name index for the position, use fileOfFileIndex in range.fs to decode
-          posFileIndex: int;
-          /// The line number for the position
-          posLineNum: int;
-          /// The line number for the position in the original source file
-          posOriginalLineNum : int;
-          /// The absolute offset of the beginning of the line
-          posStartOfLineOffset: int;
-          /// The absolute offset of the column for the position
-          posColumnOffset: int; }
-        member x.FileIndex = x.posFileIndex
-        member x.Line = x.posLineNum
-        member x.OriginalLine = x.posOriginalLineNum
-        member x.AbsoluteOffset = x.posColumnOffset
-        member x.StartOfLine = x.posStartOfLineOffset
-        member x.StartOfLineAbsoluteOffset = x.posStartOfLineOffset
-        member x.Column = x.posColumnOffset - x.posStartOfLineOffset
+    type [<Struct>] internal Position = 
+        val PosFileIndex: int;
+        val PosLineNum: int;
+        val PosOriginalLineNum : int;
+        val PosStartOfLineOffset: int;
+        val PosColumnOffset: int; 
+
+        member x.FileIndex = x.PosFileIndex
+        member x.Line = x.PosLineNum
+        member x.OriginalLine = x.PosOriginalLineNum
+        member x.AbsoluteOffset = x.PosColumnOffset
+        member x.StartOfLine = x.PosStartOfLineOffset
+        member x.Column = x.PosColumnOffset - x.PosStartOfLineOffset
+
+        new (fileIndex, lineNum, originalLineNum, startOfLineOffset, columnOffset) = {
+            PosFileIndex           = fileIndex
+            PosLineNum             = lineNum
+            PosOriginalLineNum     = originalLineNum
+            PosStartOfLineOffset   = startOfLineOffset
+            PosColumnOffset        = columnOffset
+        }
+
         member pos.NextLine = 
-            { pos with 
-                    posOriginalLineNum = pos.OriginalLine + 1;
-                    posLineNum = pos.Line+1; 
-                    posStartOfLineOffset = pos.AbsoluteOffset }
-        member pos.EndOfToken n = {pos with posColumnOffset=pos.posColumnOffset + n }
-        member pos.ShiftColumnBy by = {pos with posColumnOffset = pos.posColumnOffset + by}
-        member pos.ColumnMinusOne = { pos with posColumnOffset = pos.posStartOfLineOffset-1 }
-
+            Position (pos.FileIndex, pos.PosLineNum+1, pos.PosOriginalLineNum+1, pos.AbsoluteOffset, pos.PosColumnOffset)
+        member pos.EndOfToken n =
+            Position (pos.FileIndex, pos.PosLineNum, pos.PosOriginalLineNum, pos.PosStartOfLineOffset, pos.PosColumnOffset + n)
+        member pos.ShiftColumnBy by =
+            Position (pos.FileIndex, pos.PosLineNum, pos.PosOriginalLineNum, pos.PosStartOfLineOffset, pos.PosColumnOffset + by)
+        member pos.ColumnMinusOne =
+            Position (pos.FileIndex, pos.PosLineNum, pos.PosOriginalLineNum, pos.PosStartOfLineOffset, pos.PosStartOfLineOffset - 1)
         member pos.ApplyLineDirective (fileIdx, line) =
-            {pos with posFileIndex = fileIdx; 
-                      posStartOfLineOffset= pos.posColumnOffset;
-                      posLineNum=line };
+            Position (fileIdx, line, pos.PosOriginalLineNum, pos.PosStartOfLineOffset, pos.PosColumnOffset)
 
-        static member Empty = 
-            { posFileIndex=0; 
-              posLineNum= 0; 
-              posOriginalLineNum = 0;
-              posStartOfLineOffset= 0; 
-              posColumnOffset=0 }
+        static member Empty = Position ()
 
-        static member FirstLine fileIdx = 
-            { posFileIndex= fileIdx; 
-              posStartOfLineOffset=0;
-              posColumnOffset=0;
-              posOriginalLineNum = 0;
-              posLineNum=1 }
+        static member FirstLine fileIdx = Position (fileIdx, 1, 0, 0, 0)
+
 
     type internal LexBufferFiller<'Char> = (LexBuffer<'Char> -> unit) 
         
