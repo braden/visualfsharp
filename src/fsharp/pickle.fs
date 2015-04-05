@@ -493,10 +493,13 @@ let p_hole () =
 
 let u_array f st =
     let n = u_int st
-    let res = Array.zeroCreate n
-    for i = 0 to n-1 do
-        res.[i] <- f st
-    res
+    if n = 0 then
+        Array.empty
+    else
+        let res = Array.zeroCreate n
+        for i = 0 to n-1 do
+            res.[i] <- f st
+        res
 
 let u_list f st = Array.toList (u_array f st)
 
