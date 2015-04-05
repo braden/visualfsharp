@@ -40,7 +40,7 @@ namespace Internal.Utilities.Text.Lexing
         member pos.ColumnMinusOne =
             Position (pos.FileIndex, pos.PosLineNum, pos.PosOriginalLineNum, pos.PosStartOfLineOffset, pos.PosStartOfLineOffset - 1)
         member pos.ApplyLineDirective (fileIdx, line) =
-            Position (fileIdx, line, pos.PosOriginalLineNum, pos.PosStartOfLineOffset, pos.PosColumnOffset)
+            Position (fileIdx, line, pos.PosOriginalLineNum, pos.PosColumnOffset, pos.PosColumnOffset)
 
         static member Empty = Position ()
 
