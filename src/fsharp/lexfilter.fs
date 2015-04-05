@@ -978,7 +978,96 @@ type LexFilterImpl (lightSyntaxStatus:LightSyntaxStatus, compilingFsLib, lexer, 
     // parentheses and other constructs.
     //--------------------------------------------------------------------------
 
-              
+    let tokenBalancesHeadContext token stack = 
+        match token,stack with 
+        | END, (CtxtWithAsAugment(_)  :: _)
+        | (ELSE | ELIF), (CtxtIf _ :: _)
+        | DONE         , (CtxtDo _ :: _)
+        // WITH balances except in the following contexts.... Phew - an overused keyword! 
+        | WITH         , (  ((CtxtMatch _ | CtxtException _ | CtxtMemberHead _ | CtxtInterfaceHead _ | CtxtTry _ | CtxtTypeDefns _ | CtxtMemberBody _)  :: _)
+                                // This is the nasty record/object-expression case 
+                                | (CtxtSeqBlock _ :: CtxtParen(LBRACE,_)  :: _) )
+        | FINALLY      , (CtxtTry _  :: _) -> 
+            true
+
+        // for x in ienum ... 
+        // let x = ... in
+        | IN           , ((CtxtFor _ | CtxtLetDecl _) :: _) ->
+            true
+        // 'query { join x in ys ... }'
+        // 'query { ... 
+        //          join x in ys ... }'
+        // 'query { for ... do
+        //          join x in ys ... }'
+        | IN           , stack when detectJoinInCtxt stack ->
+            true
+
+        // NOTE: ;; does not terminate a 'namespace' body. 
+        | SEMICOLON_SEMICOLON, (CtxtSeqBlock _ :: CtxtNamespaceBody _ :: _) -> 
+            true
+
+        | SEMICOLON_SEMICOLON, (CtxtSeqBlock _ :: CtxtModuleBody (_,true) :: _) -> 
+            true
+
+        | t2           , (CtxtParen(t1,_) :: _) -> 
+            parenTokensBalance t1  t2
+
+        | _ -> 
+            false
+
+    let rec suffixExists p l = match l with [] -> false | _::t -> p t || suffixExists p t
+
+    // Balancing rule. Every 'in' terminates all surrounding blocks up to a CtxtLetDecl, and will be swallowed by 
+    // terminating the corresponding CtxtLetDecl in the rule below. 
+    // Balancing rule. Every 'done' terminates all surrounding blocks up to a CtxtDo, and will be swallowed by 
+    // terminating the corresponding CtxtDo in the rule below. 
+    let tokenForcesHeadContextClosure token stack = 
+        nonNil stack &&
+        match token with 
+        | Parser.EOF _ -> true
+        | SEMICOLON_SEMICOLON  -> not (tokenBalancesHeadContext token stack) 
+        | END 
+        | ELSE 
+        | ELIF 
+        | DONE 
+        | IN 
+        | RPAREN
+        | GREATER true 
+        | RBRACE 
+        | RBRACK 
+        | BAR_RBRACK 
+        | WITH 
+        | FINALLY 
+        | RQUOTE _  ->
+            not (tokenBalancesHeadContext token stack) && 
+            // Only close the context if some context is going to match at some point in the stack.
+            // If none match, the token will go through, and error recovery will kick in in the parser and report the extra token,
+            // and then parsing will continue. Closing all the contexts will not achieve much except aid in a catastrophic failure.
+            (stack |> suffixExists (tokenBalancesHeadContext token))
+
+        | _ -> false
+
+    // If you see a 'member' keyword while you are inside the body of another member, then it usually means there is a syntax error inside this method
+    // and the upcoming 'member' is the start of the next member in the class.  For better parser recovery and diagnostics, it is best to pop out of the 
+    // existing member context so the parser can recover.
+    //
+    // However there are two places where 'member' keywords can appear inside expressions inside the body of a member.  The first is object expressions, and
+    // the second is static inline constraints.  We must not pop the context stack in those cases, or else legal code will not parse.
+    //
+    // It is impossible to decide for sure if we're in one of those two cases, so we must err conservatively if we might be.
+    let thereIsACtxtMemberBodyOnTheStackAndWeShouldPopStackForUpcomingMember ctxtStack = 
+        // a 'member' starter keyword is coming; should we pop?
+        if not(List.exists (function CtxtMemberBody _ -> true | _ -> false) ctxtStack) then
+            false // no member currently on the stack, nothing to pop
+        else
+            // there is a member context
+            if List.exists (function CtxtParen(LBRACE,_) -> true | _ -> false) ctxtStack then
+                false  // an LBRACE could mean an object expression, and object expressions can have 'member' tokens in them, so do not pop, to be safe
+            elif List.count (function CtxtParen(LPAREN,_) -> true | _ -> false) ctxtStack >= 2 then
+                false  // static member constraints always are embedded in at least two LPARENS, so do not pop, to be safe
+            else
+                true      
+                        
     let rec hwTokenFetch (useBlockRule) =
         let tokenTup = popNextTokenTup()
         let tokenReplaced = rulesForBothSoftWhiteAndHardWhite(tokenTup)
@@ -1053,26 +1142,6 @@ type LexFilterImpl (lightSyntaxStatus:LightSyntaxStatus, compilingFsLib, lexer, 
 
         let isSemiSemi = match token with SEMICOLON_SEMICOLON -> true | _ -> false
 
-        // If you see a 'member' keyword while you are inside the body of another member, then it usually means there is a syntax error inside this method
-        // and the upcoming 'member' is the start of the next member in the class.  For better parser recovery and diagnostics, it is best to pop out of the 
-        // existing member context so the parser can recover.
-        //
-        // However there are two places where 'member' keywords can appear inside expressions inside the body of a member.  The first is object expressions, and
-        // the second is static inline constraints.  We must not pop the context stack in those cases, or else legal code will not parse.
-        //
-        // It is impossible to decide for sure if we're in one of those two cases, so we must err conservatively if we might be.
-        let thereIsACtxtMemberBodyOnTheStackAndWeShouldPopStackForUpcomingMember ctxtStack = 
-            // a 'member' starter keyword is coming; should we pop?
-            if not(List.exists (function CtxtMemberBody _ -> true | _ -> false) ctxtStack) then
-                false // no member currently on the stack, nothing to pop
-            else
-                // there is a member context
-                if List.exists (function CtxtParen(LBRACE,_) -> true | _ -> false) ctxtStack then
-                    false  // an LBRACE could mean an object expression, and object expressions can have 'member' tokens in them, so do not pop, to be safe
-                elif List.count (function CtxtParen(LPAREN,_) -> true | _ -> false) ctxtStack >= 2 then
-                    false  // static member constraints always are embedded in at least two LPARENS, so do not pop, to be safe
-                else
-                    true
 
         let endTokenForACtxt ctxt =
             match ctxt with 
@@ -1096,76 +1165,6 @@ type LexFilterImpl (lightSyntaxStatus:LightSyntaxStatus, compilingFsLib, lexer, 
 
             | _ -> 
                 None
-
-
-        let tokenBalancesHeadContext token stack = 
-            match token,stack with 
-            | END, (CtxtWithAsAugment(_)  :: _)
-            | (ELSE | ELIF), (CtxtIf _ :: _)
-            | DONE         , (CtxtDo _ :: _)
-            // WITH balances except in the following contexts.... Phew - an overused keyword! 
-            | WITH         , (  ((CtxtMatch _ | CtxtException _ | CtxtMemberHead _ | CtxtInterfaceHead _ | CtxtTry _ | CtxtTypeDefns _ | CtxtMemberBody _)  :: _)
-                                    // This is the nasty record/object-expression case 
-                                    | (CtxtSeqBlock _ :: CtxtParen(LBRACE,_)  :: _) )
-            | FINALLY      , (CtxtTry _  :: _) -> 
-                true
-
-            // for x in ienum ... 
-            // let x = ... in
-            | IN           , ((CtxtFor _ | CtxtLetDecl _) :: _) ->
-                true
-            // 'query { join x in ys ... }'
-            // 'query { ... 
-            //          join x in ys ... }'
-            // 'query { for ... do
-            //          join x in ys ... }'
-            | IN           , stack when detectJoinInCtxt stack ->
-                true
-
-            // NOTE: ;; does not terminate a 'namespace' body. 
-            | SEMICOLON_SEMICOLON, (CtxtSeqBlock _ :: CtxtNamespaceBody _ :: _) -> 
-                true
-
-            | SEMICOLON_SEMICOLON, (CtxtSeqBlock _ :: CtxtModuleBody (_,true) :: _) -> 
-                true
-
-            | t2           , (CtxtParen(t1,_) :: _) -> 
-                parenTokensBalance t1  t2
-
-            | _ -> 
-                false
-
-        let rec suffixExists p l = match l with [] -> false | _::t -> p t || suffixExists p t
-
-        // Balancing rule. Every 'in' terminates all surrounding blocks up to a CtxtLetDecl, and will be swallowed by 
-        // terminating the corresponding CtxtLetDecl in the rule below. 
-        // Balancing rule. Every 'done' terminates all surrounding blocks up to a CtxtDo, and will be swallowed by 
-        // terminating the corresponding CtxtDo in the rule below. 
-        let tokenForcesHeadContextClosure token stack = 
-            nonNil stack &&
-            match token with 
-            | Parser.EOF _ -> true
-            | SEMICOLON_SEMICOLON  -> not (tokenBalancesHeadContext token stack) 
-            | END 
-            | ELSE 
-            | ELIF 
-            | DONE 
-            | IN 
-            | RPAREN
-            | GREATER true 
-            | RBRACE 
-            | RBRACK 
-            | BAR_RBRACK 
-            | WITH 
-            | FINALLY 
-            | RQUOTE _  ->
-                not (tokenBalancesHeadContext token stack) && 
-                // Only close the context if some context is going to match at some point in the stack.
-                // If none match, the token will go through, and error recovery will kick in in the parser and report the extra token,
-                // and then parsing will continue. Closing all the contexts will not achieve much except aid in a catastrophic failure.
-                (stack |> suffixExists (tokenBalancesHeadContext token))
-
-            | _ -> false
 
         // The TYPE and MODULE keywords cannot be used in expressions, but the parser has a hard time recovering on incomplete-expression-code followed by
         // a TYPE or MODULE.  So the lexfiler helps out by looking ahead for these tokens and (1) closing expression contexts and (2) inserting extra 'coming soon' tokens
