@@ -67,6 +67,12 @@
     <Compile Include="..\sr.fs">
       <Link>sr.fs</Link>
     </Compile>
+    <Compile Include="..\InternalCollections.fsi">
+      <Link>InternalCollections.fsi</Link>
+    </Compile>
+    <Compile Include="..\InternalCollections.fs">
+      <Link>InternalCollections.fs</Link>
+    </Compile>    
     <Compile Include="..\..\utils\prim-lexing.fsi">
       <Link>prim-lexing.fsi</Link>
     </Compile>
@@ -197,12 +203,6 @@
     </Compile>
     <Compile Include="..\ErrorLogger.fs">
       <Link>ErrorLogger.fs</Link>
-    </Compile>
-    <Compile Include="..\InternalCollections.fsi">
-      <Link>InternalCollections.fsi</Link>
-    </Compile>
-    <Compile Include="..\InternalCollections.fs">
-      <Link>InternalCollections.fs</Link>
     </Compile>
     <Compile Include="..\..\absil\ilread.fsi">
       <Link>ilread.fsi</Link>
