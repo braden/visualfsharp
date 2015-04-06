@@ -119,6 +119,16 @@ module internal Implementation =
     let actionValue action = action &&& (~~~ actionMask)                                    
     let actionKind action = action &&& actionMask
     
+#if OLD_CACHE
+#else
+    let assocTableCacheSize = 7919 // the 1000'th prime
+    let assocTableCachePool = 
+        Internal.Utilities.Collections.Pool<int[]> (
+            4, // Number of AssocTables in flight at one time
+            (fun () -> Array.zeroCreate<int> (assocTableCacheSize * 2)), 
+            (fun arr -> Array.fill arr 0 arr.Length 0; arr))
+#endif
+
     //-------------------------------------------------------------------------
     // Read the tables written by FSYACC.  
 
@@ -126,10 +136,10 @@ module internal Implementation =
 #if OLD_CACHE
         let cache = new Dictionary<int,int>(2000)
 #else
-        let cacheSize = 7919 // the 1000'th prime
+        
         // Use a simpler hash table with faster lookup, but only one
         // hash bucket per key.
-        let cache = Array.zeroCreate<int> (cacheSize * 2)
+        let cache = assocTableCachePool.Acquire ()
 #endif
 
         member t.ReadAssoc (minElemNum,maxElemNum,defaultValueOfAssoc,keyToFind) =     
@@ -161,7 +171,7 @@ module internal Implementation =
             if ok then res 
             else
 #else
-            let cacheIdx = int32 (uint32 cacheKey % uint32 cacheSize)
+            let cacheIdx = int32 (uint32 cacheKey % uint32 assocTableCacheSize)
             let cacheKey2 = cache.[cacheIdx*2]
             let v = cache.[cacheIdx*2+1]
             if cacheKey = cacheKey2 then v 
@@ -189,6 +199,13 @@ module internal Implementation =
             let defaultValueOfAssoc = int elemTab.[headOfTable*2+1]          
             [ for i in firstElemNumber .. (firstElemNumber+numberOfElementsInAssoc-1) -> 
                 (int elemTab.[i*2], int elemTab.[i*2+1]) ], defaultValueOfAssoc
+
+#if OLD_CACHE
+#else
+        interface System.IDisposable with
+            member __.Dispose () =
+                assocTableCachePool.Recycle cache
+#endif                
 
     type IdxToIdxListTable(elemTab:uint16[], offsetTab:uint16[]) =
 
@@ -239,9 +256,9 @@ module internal Implementation =
         let ruleEndPoss   = (Array.zeroCreate 100 : Position[])              
         let ruleValues    = (Array.zeroCreate 100 : obj[])              
         let lhsPos        = (Array.zeroCreate 2 : Position[])                                            
-        let reductions = tables.reductions
-        let actionTable = new AssocTable(tables.actionTableElements, tables.actionTableRowOffsets)
-        let gotoTable = new AssocTable(tables.gotos, tables.sparseGotoTableRowOffsets)
+        let reductions    = tables.reductions
+        use actionTable   = new AssocTable(tables.actionTableElements, tables.actionTableRowOffsets)
+        use gotoTable     = new AssocTable(tables.gotos, tables.sparseGotoTableRowOffsets)
         let stateToProdIdxsTable = new IdxToIdxListTable(tables.stateToProdIdxsTableElements, tables.stateToProdIdxsTableRowOffsets)
 
         let parseState =                                                                                            

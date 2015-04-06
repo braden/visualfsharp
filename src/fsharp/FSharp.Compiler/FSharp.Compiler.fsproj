@@ -40,18 +40,6 @@
     <Compile Include="..\sr.fs">
       <Link>ErrorText\sr.fs</Link>
     </Compile>
-    <Compile Include="..\..\utils\prim-lexing.fsi">
-      <Link>LexYaccRuntime\prim-lexing.fsi</Link>
-    </Compile>
-    <Compile Include="..\..\utils\prim-lexing.fs">
-      <Link>LexYaccRuntime\prim-lexing.fs</Link>
-    </Compile>
-    <Compile Include="..\..\utils\prim-parsing.fsi">
-      <Link>LexYaccRuntime\prim-parsing.fsi</Link>
-    </Compile>
-    <Compile Include="..\..\utils\prim-parsing.fs">
-      <Link>LexYaccRuntime\prim-parsing.fs</Link>
-    </Compile>
     <Compile Include="..\ExtensibleDumper.fsi">
       <Link>Utilities\ExtensibleDumper.fsi</Link>
     </Compile>
@@ -136,6 +124,18 @@
     <Compile Include="..\TraceCall.fs">
       <Link>Utilities\TraceCall.fs</Link>
     </Compile>
+    <Compile Include="..\..\utils\prim-lexing.fsi">
+      <Link>LexYaccRuntime\prim-lexing.fsi</Link>
+    </Compile>
+    <Compile Include="..\..\utils\prim-lexing.fs">
+      <Link>LexYaccRuntime\prim-lexing.fs</Link>
+    </Compile>
+    <Compile Include="..\..\utils\prim-parsing.fsi">
+      <Link>LexYaccRuntime\prim-parsing.fsi</Link>
+    </Compile>
+    <Compile Include="..\..\utils\prim-parsing.fs">
+      <Link>LexYaccRuntime\prim-parsing.fs</Link>
+    </Compile>      
     <Compile Include="..\rational.fsi">
       <Link>ErrorLogging\rational.fsi</Link>
     </Compile>
