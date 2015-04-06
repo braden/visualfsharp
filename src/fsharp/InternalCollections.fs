@@ -234,3 +234,16 @@ type internal List =
         let set = System.Collections.Generic.Dictionary<'T,bool>(HashIdentity.Reference)
         l |> List.iter(fun i->set.Add(i,true))
         set |> Seq.map(fun kv->kv.Key) |> List.ofSeq
+
+type internal Pool<'T> (maxItems, createItem:unit->'T, clearItem:'T->'T) =
+    let cache = System.Collections.Concurrent.ConcurrentStack<'T> ()
+
+    member __.Acquire () =
+        match cache.TryPop () with
+        | true, item -> item
+        | false, _ ->
+            createItem ()
+
+    member __.Recycle (item:'T) =
+        if cache.Count < maxItems then
+            cache.Push (clearItem item)

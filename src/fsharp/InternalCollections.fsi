@@ -62,3 +62,16 @@ namespace Internal.Utilities.Collections
     static member groupByFirst : l:('TKey * 'TValue) list -> ('TKey * 'TValue list) list when 'TKey : equality
     /// Return each distinct item in the list using reference equality.
     static member referenceDistinct : 'T list -> 'T list when 'T : not struct
+
+    /// Simple object pool, use sparingly to avoid construct temporary expensive objects.
+    /// Access to the pool is thread-safe.
+    type internal Pool<'T> =
+        new : maxItems:int
+            * createItem:(unit -> 'T)
+            * clearItem:('T -> 'T)
+            -> Pool<'T>
+
+        /// Return an item from the pool, if any exist, otherwise construct a new one
+        member Acquire: unit -> 'T
+        /// Return an item to the pool for reuse
+        member Recycle: item:'T -> unit
