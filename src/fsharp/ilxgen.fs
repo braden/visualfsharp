@@ -5248,7 +5248,8 @@ and GenMethodForBinding
 
     let ilAttrsThatGoOnPrimaryItem = 
         [ yield! GenAttrs cenv eenv attrs
-          yield! GenCompilationArgumentCountsAttr cenv v ]
+          if access = ILMemberAccess.Public then
+            yield! GenCompilationArgumentCountsAttr cenv v ]
 
     let ilTypars = GenGenericParams cenv eenvUnderMethLambdaTypars tps
     let ilParams = GenParams cenv eenv mspec paramInfos (Some(nonUnitNonSelfMethodVars))
