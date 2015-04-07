@@ -684,21 +684,35 @@ and AddModuleOrNamespaceContentsToNameEnv (g:TcGlobals) amap (ad:AccessorDomain)
      let pri = NextExtensionMethodPriority()
      let mty = modref.ModuleOrNamespaceType
      let tycons = mty.TypeAndExceptionDefinitions 
-
      let exncs = mty.ExceptionDefinitions
      let nenv = { nenv with eDisplayEnv= nenv.eDisplayEnv.AddOpenModuleOrNamespace modref }
-     let tcrefs = tycons |> List.map modref.MkNestedTyconRef |> List.filter (IsEntityAccessible amap m ad) 
-     let exrefs = exncs |> List.map modref.MkNestedTyconRef |> List.filter (IsEntityAccessible amap m ad) 
-     let nenv = (nenv,exrefs) ||> List.fold (AddExceptionDeclsToNameEnv BulkAdd.Yes)
-     let nenv = (nenv,tcrefs) ||> AddTyconRefsToNameEnv BulkAdd.Yes false g amap m false 
+     
+     let nenv =
+         match exncs |> List.map modref.MkNestedTyconRef |> List.filter (IsEntityAccessible amap m ad)  with
+         | [] -> nenv
+         | exrefs -> (nenv,exrefs) ||> List.fold (AddExceptionDeclsToNameEnv BulkAdd.Yes)
+
+     let nenv =
+        match tycons |> List.map modref.MkNestedTyconRef |> List.filter (IsEntityAccessible amap m ad)  with
+        | [] -> nenv
+        | tcrefs -> (nenv,tcrefs) ||> AddTyconRefsToNameEnv BulkAdd.Yes false g amap m false 
+
      let vrefs = 
          mty.AllValsAndMembers.ToFlatList() 
          |> FlatList.choose (fun x -> 
              if IsAccessible ad x.Accessibility then TryMkValRefInModRef modref x 
              else None)
          |> FlatList.toArray
-     let nenv = AddValRefsToNameEnvWithPriority BulkAdd.Yes pri nenv vrefs
-     let nenv = (nenv,MakeNestedModuleRefs modref) ||> AddModuleOrNamespaceRefsToNameEnv g amap m root ad 
+    
+     let nenv =
+        if Array.isEmpty vrefs then nenv
+        else AddValRefsToNameEnvWithPriority BulkAdd.Yes pri nenv vrefs
+
+     let nenv =
+        match MakeNestedModuleRefs modref with
+        | [] -> nenv
+        | modrefs -> (nenv, modrefs) ||> AddModuleOrNamespaceRefsToNameEnv g amap m root ad 
+    
      nenv
 
 /// Add a set of modules or namespaces to the name resolution environment
